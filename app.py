@@ -92,7 +92,7 @@ if st.button("Get Recommendation 🏍️"):
         st.session_state.messages.append({"role": "user", "content": user_input})
         
         # 🔗 Flowise Connection (REPLACE WITH YOUR RENDER URL)
-        API_URL = "https://fahath-bike-recommendation-ai.onrender.com/api/v1/prediction/YOUR_CHATFLOW_ID"
+        API_URL = "https://cloud.flowiseai.com"
         
         with st.spinner("Expert processing..."):
             try:
