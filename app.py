@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 import json, os, random
 from datetime import date, datetime
 import plotly.express as px
