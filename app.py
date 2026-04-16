@@ -1,112 +1,176 @@
-import streamlit as st
-import requests
+ import streamlit as st
+import json, os, random
+from datetime import date, datetime
+import plotly.express as px
 
-# 🌟 Page Config
-st.set_page_config(page_title="Fahath Bike AI", page_icon="🏍️", layout="centered")
+st.set_page_config(page_title="Life Game GOD MODE 😈", layout="wide")
 
-# 💎 Custom CSS for Glassmorphism & WhatsApp UI
-st.markdown("""
-<style>
-    /* Background */
-    .stApp {
-        background: linear-gradient(135deg, #1e1e2f 0%, #2d3436 100%);
+DATA_FILE = "data.json"
+
+# ------------------ AUTH ------------------
+if "login" not in st.session_state:
+    st.session_state.login = False
+
+if not st.session_state.login:
+    st.title("🔐 Login")
+    user = st.text_input("Username")
+    pwd = st.text_input("Password", type="password")
+
+    if st.button("LOGIN"):
+        if user == "hari" and pwd == "9442176514":
+            st.session_state.login = True
+            st.success("Login Success")
+        else:
+            st.error("Wrong credentials")
+    st.stop()
+
+# ------------------ DATA ------------------
+def load_data():
+    default = {
+        "points": 0,
+        "xp": 0,
+        "history": {},
+        "badges": [],
+        "reasons": {},
+        "start_date": str(date.today()),
+        "locked_days": [],
+        "name": "Player",
+        "avatar": "😎",
     }
+
+    if not os.path.exists(DATA_FILE):
+        return default
+
+    try:
+        with open(DATA_FILE, "r") as f:
+            data = json.load(f)
+    except:
+        return default
+
+    for k in default:
+        if k not in data:
+            data[k] = default[k]
+
+    return data
+
+
+def save_data(data):
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f)
+
+
+data = load_data()
+
+today = date.today()
+today_str = str(today)
+
+# ------------------ LEVEL ------------------
+days_passed = (today - datetime.strptime(data["start_date"], "%Y-%m-%d").date()).days
+level = min(100, int((days_passed / 365) * 100))
+
+# ------------------ TASKS ------------------
+tasks = {
+    "Morning": ["Wake 5:30", "Brush", "Bath", "Prayer"],
+    "Workout": ["Walking", "Exercise", "Breathing"],
+    "Learning": ["Python", "English", "Reading"],
+    "Health": ["Water", "No Junk"]
+}
+
+TASK_XP = {
+    "Wake 5:30": 10, "Brush": 5, "Bath": 5, "Prayer": 10,
+    "Walking": 20, "Exercise": 25, "Breathing": 10,
+    "Python": 20, "English": 15, "Reading": 15,
+    "Water": 10, "No Junk": 20
+}
+
+# ------------------ NAV ------------------
+menu = ["Dashboard", "Missions", "Stats", "Profile"]
+choice = st.sidebar.radio("Menu", menu)
+
+# ------------------ DASHBOARD ------------------
+if choice == "Dashboard":
+    st.title("🎯 LIFE GAME")
+    st.subheader(f"{data['avatar']} {data['name']}")
+    st.write(f"Level: {level}/100")
+    st.write(f"XP: {data['xp']}")
+
+# ------------------ MISSIONS ------------------
+elif choice == "Missions":
+    st.title("🎮 Missions")
+
+    done = 0
+    total = 0
+    missed = []
+
+    locked = today_str in data["locked_days"]
+
+    for group, tlist in tasks.items():
+        st.subheader(group)
+
+        for t in tlist:
+            total += 1
+            checked = st.checkbox(t, key=f"{today_str}_{t}", disabled=locked)
+
+            if checked:
+                done += 1
+            else:
+                missed.append(t)
+
+    score = int((done / total) * 100) if total else 0
+    st.progress(score / 100)
+    st.write(f"Score: {score}%")
+
+    reasons = {}
+    if missed:
+        st.subheader("Missed Reasons")
+        for t in missed:
+            r = st.text_input(f"{t}")
+            if r:
+                reasons[t] = r
+
+    if st.button("FINAL SAVE") and not locked:
+        data["history"][today_str] = score
+        data["xp"] += score
+        data["points"] += score
+
+        penalty = sum(TASK_XP.get(t, 5) for t in missed)
+        data["xp"] -= penalty
+        data["points"] -= penalty
+
+        data["xp"] = max(0, data["xp"])
+        data["points"] = max(0, data["points"])
+
+        data["reasons"][today_str] = reasons
+        data["locked_days"].append(today_str)
+
+        save_data(data)
+        st.success("Saved & Locked")
+        st.rerun()
+
+# ------------------ STATS ------------------
+elif choice == "Stats":
+    st.title("📊 Stats")
+
+    history = data.get("history", {})
+
+    if history:
+        dates = list(history.keys())
+        scores = list(history.values())
+
+        st.plotly_chart(px.line(x=dates, y=scores, title="Progress"))
+
+# ------------------ PROFILE ------------------
+elif choice == "Profile":
+    st.title("🧑 Profile")
+
+    name = st.text_input("Name", value=data["name"])
+    avatar = st.selectbox("Avatar", ["😎", "🔥", "👑", "💪"])
+
+    if st.button("Save Profile"):
+        data["name"] = name
+        data["avatar"] = avatar
+        save_data(data)
+        st.success("Saved")
+
+    st.write(f"XP: {data['xp']}")
     
-    /* Welcome Header */
-    .welcome-text {
-        text-align: center;
-        color: #00d2ff;
-        font-family: 'Poppins', sans-serif;
-        font-weight: 700;
-        font-size: 2.5rem;
-        text-shadow: 2px 2px 10px rgba(0, 210, 255, 0.3);
-        margin-bottom: 20px;
-    }
-
-    /* Glass Chat Container */
-    .chat-bubble {
-        padding: 15px;
-        border-radius: 20px;
-        margin-bottom: 15px;
-        max-width: 80%;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .user-msg {
-        background: rgba(0, 210, 255, 0.2);
-        color: white;
-        margin-left: auto;
-        border-bottom-right-radius: 2px;
-    }
-
-    .ai-msg {
-        background: rgba(255, 255, 255, 0.1);
-        color: #f1f1f1;
-        margin-right: auto;
-        border-bottom-left-radius: 2px;
-    }
-
-    /* 🌊 Water/Glassy Button Effect */
-    div.stButton > button {
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        padding: 10px 25px;
-        border-radius: 50px;
-        backdrop-filter: blur(15px);
-        transition: all 0.5s ease;
-        position: relative;
-        overflow: hidden;
-        width: 100%;
-    }
-
-    div.stButton > button:hover {
-        background: rgba(0, 210, 255, 0.4);
-        box-shadow: 0 0 20px rgba(0, 210, 255, 0.6);
-        color: white;
-        transform: translateY(-2px);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# 🏁 Welcome Message
-st.markdown('<h1 class="welcome-text">Welcome to Fahath Bike Recommendation</h1>', unsafe_allow_html=True)
-
-# Initialize Chat History
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Display Messages (WhatsApp Style)
-for message in st.session_state.messages:
-    role_class = "user-msg" if message["role"] == "user" else "ai-msg"
-    st.markdown(f'<div class="chat-bubble {role_class}">{message["content"]}</div>', unsafe_allow_html=True)
-
-# User Input Section
-user_input = st.text_input("Namma Expert kitta kelunga...", key="user_query", placeholder="Example: 2 lakh budget-la stylish bike?")
-
-if st.button("Get Recommendation 🏍️"):
-    if user_input:
-        # Add user message to history
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        
-        # 🔗 Flowise Connection (REPLACE WITH YOUR RENDER URL)
-        API_URL = "https://cloud.flowiseai.com"
-        
-        with st.spinner("Expert processing..."):
-            try:
-                response = requests.post(API_URL, json={"question": user_input})
-                if response.status_code == 200:
-                    answer = response.json().get("text", "Error: No response from AI")
-                    # Clean the AI output (Single line format as requested)
-                    clean_answer = answer.replace("\n", " ").strip()
-                    st.session_state.messages.append({"role": "assistant", "content": clean_answer})
-                    st.rerun()
-                else:
-                    st.error("Backend Error! Flowise URL check pannunga.")
-            except Exception as e:
-                st.error(f"Error: {e}")
-    else:
-        st.warning("Type pannunga nanba!")
-      
